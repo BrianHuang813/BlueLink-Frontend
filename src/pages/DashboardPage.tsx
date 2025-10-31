@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { Link } from 'react-router-dom';
 import { projectService } from '../services/api';
 import { Project, DonationReceipt } from '../types';
@@ -177,7 +177,7 @@ const DonorDashboard: React.FC<{ donations: DonationReceipt[] }> = ({ donations 
 
 // Simple card for the created projects list
 const CreatorProjectCard: React.FC<{ project: Project }> = ({ project }) => {
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const fundingGoal = parseFloat(project.funding_goal) / 1000000000;
@@ -192,7 +192,7 @@ const CreatorProjectCard: React.FC<{ project: Project }> = ({ project }) => {
     
     setIsWithdrawing(true);
     
-    const txb = new TransactionBlock();
+    const txb = new Transaction();
     
     // =======================================================================
     // TODO: 將 '0x0' 替換為真實 Package ID
@@ -206,14 +206,14 @@ const CreatorProjectCard: React.FC<{ project: Project }> = ({ project }) => {
     });
 
     signAndExecute(
-      { transactionBlock: txb },
+      { transaction: txb },
       {
-        onSuccess: (result) => {
+        onSuccess: (result: any) => {
           console.log('Withdraw successful:', result);
           alert('資金提取成功！頁面將會刷新以更新數據。');
           window.location.reload();
         },
-        onError: (error) => {
+        onError: (error: any) => {
           console.error('Withdraw failed:', error);
           alert('資金提取失敗，請重試。');
         },

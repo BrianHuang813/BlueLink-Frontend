@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { projectService } from '../services/api';
 import { Project } from '../types';
 
@@ -14,7 +14,7 @@ const ProjectDetailPage: React.FC = () => {
   const [donating, setDonating] = useState(false);
 
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -41,8 +41,8 @@ const ProjectDetailPage: React.FC = () => {
     try {
       const amount = parseFloat(donationAmount) * 1000000000; // Convert SUI to MIST
       
-      const txb = new TransactionBlock();
-      const [coin] = txb.splitCoins(txb.gas, [txb.pure(amount)]);
+      const txb = new Transaction();
+      const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(amount)]);
       
       // =======================================================================
       // TODO: 將 '0x0' 替換部署後的真實 Package ID
@@ -57,15 +57,15 @@ const ProjectDetailPage: React.FC = () => {
       });
 
       signAndExecute(
-        { transactionBlock: txb },
+        { transaction: txb },
         {
-          onSuccess: (result) => {
+          onSuccess: (result: any) => {
             console.log('Donation successful:', result);
             setDonationAmount('');
             // Refresh project data
             window.location.reload();
           },
-          onError: (error) => {
+          onError: (error: any) => {
             console.error('Donation failed:', error);
             alert('捐贈失敗，請重試');
           }

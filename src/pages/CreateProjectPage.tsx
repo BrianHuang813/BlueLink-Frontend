@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { CreateProjectForm } from '../types';
 
 const CreateProjectPage: React.FC = () => {
@@ -12,7 +12,7 @@ const CreateProjectPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
 
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -33,7 +33,7 @@ const CreateProjectPage: React.FC = () => {
     try {
       const fundingGoalMist = form.funding_goal * 1000000000; // Convert SUI to MIST
       
-      const txb = new TransactionBlock();
+      const txb = new Transaction();
       
       // =======================================================================
       // TODO: 將 '0x0' 替換為真實 Package ID
@@ -42,21 +42,21 @@ const CreateProjectPage: React.FC = () => {
       txb.moveCall({
         target: '0x0::bluelink::create_project', // Replace with actual package address
         arguments: [
-          txb.pure(Array.from(new TextEncoder().encode(form.name))),
-          txb.pure(Array.from(new TextEncoder().encode(form.description))),
-          txb.pure(fundingGoalMist),
+          txb.pure(new TextEncoder().encode(form.name)),
+          txb.pure(new TextEncoder().encode(form.description)),
+          txb.pure.u64(fundingGoalMist),
         ],
       });
 
       signAndExecute(
-        { transactionBlock: txb },
+        { transaction: txb },
         {
-          onSuccess: (result) => {
+          onSuccess: (result: any) => {
             console.log('Project created successfully:', result);
             alert('項目建立成功！');
             setForm({ name: '', description: '', funding_goal: 0 });
           },
-          onError: (error) => {
+          onError: (error: any) => {
             console.error('Project creation failed:', error);
             alert('項目建立失敗，請重試');
           }
