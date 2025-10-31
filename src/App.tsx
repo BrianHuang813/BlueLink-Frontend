@@ -8,6 +8,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import DashboardPage from './pages/DashboardPage';
 import BondMarketplacePage from './pages/BondMarketplacePage';
+import InvestorPortfolioPage from './pages/InvestorPortfolioPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider } from './components/ToastProvider';
 import { getUserProfile } from './lib/api';
@@ -69,6 +70,11 @@ function App() {
               <Route path="/bonds" element={
                 <ProtectedRoute>
                   <BondMarketplacePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/portfolio" element={
+                <ProtectedRoute>
+                  <InvestorPortfolioPage />
                 </ProtectedRoute>
               } />
               <Route path="/project/:id" element={

@@ -71,6 +71,12 @@ const Header: React.FC = () => {
                   債券市場
                 </Link>
                 <Link 
+                  to="/portfolio" 
+                  className="hover:text-blue-200 transition-colors"
+                >
+                  我的投資
+                </Link>
+                <Link 
                   to="/create" 
                   className="hover:text-blue-200 transition-colors"
                 >
@@ -80,7 +86,7 @@ const Header: React.FC = () => {
                   to="/dashboard" 
                   className="hover:text-blue-200 transition-colors"
                 >
-                  我的儀表板
+                  儀表板
                 </Link>
               </nav>
             )}
