@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { Project, DonationReceipt } from '../types';
+import { Config } from '../lib/config';
 
-// 從環境變量讀取 API 基礎 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+// 從集中配置讀取 API 基礎 URL
+const API_BASE_URL = Config.API_BASE_URL || 'http://localhost:8080/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
