@@ -91,3 +91,49 @@ export function daysUntilMaturity(maturityDate: string): number {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return Math.max(0, diffDays);
 }
+
+/**
+ * Calculate redemption amount (principal + simple interest)
+ * @param principal Amount invested (in MIST)
+ * @param annualInterestRate Annual interest rate in basis points (e.g., 500 = 5%)
+ * @param purchaseDate Purchase date timestamp in ms
+ * @param maturityDate Maturity date timestamp in ms
+ * @returns Redemption amount in MIST
+ */
+export function calculateRedemptionAmount(
+  principal: number,
+  annualInterestRate: number,
+  purchaseDate: number,
+  maturityDate: number
+): number {
+  const currentTime = Date.now();
+  const effectiveMaturity = Math.min(currentTime, maturityDate);
+  
+  // Calculate time held in days
+  const timeHeldMs = effectiveMaturity - purchaseDate;
+  const timeHeldDays = timeHeldMs / (1000 * 60 * 60 * 24);
+  
+  // Simple interest calculation: principal * rate * time / (365 * 10000)
+  // rate is in basis points (10000 basis points = 100%)
+  const interest = (principal * annualInterestRate * timeHeldDays) / (365 * 10000);
+  
+  return Math.floor(principal + interest);
+}
+
+/**
+ * Calculate expected interest for a bond token
+ */
+export function calculateExpectedInterest(
+  principal: number,
+  annualInterestRate: number,
+  purchaseDate: number,
+  maturityDate: number
+): number {
+  const redemptionAmount = calculateRedemptionAmount(
+    principal,
+    annualInterestRate,
+    purchaseDate,
+    maturityDate
+  );
+  return redemptionAmount - principal;
+}

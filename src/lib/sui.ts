@@ -46,20 +46,28 @@ export const CONTRACT_INFO = {
  * Create a new bond project on-chain
  */
 export function createBondProjectTx(params: {
+  issuerName: string;
   bondName: string;
+  bondImageUrl: string;
+  tokenImageUrl: string;
   totalAmount: number; // in MIST
   annualInterestRate: number; // in basis points
   maturityDate: number; // timestamp in ms
+  metadataUrl: string;
 }): Transaction {
   const tx = new Transaction();
 
   tx.moveCall({
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::create_bond_project`,
     arguments: [
+      tx.pure.string(params.issuerName),
       tx.pure.string(params.bondName),
+      tx.pure.string(params.bondImageUrl),
+      tx.pure.string(params.tokenImageUrl),
       tx.pure.u64(params.totalAmount),
       tx.pure.u64(params.annualInterestRate),
       tx.pure.u64(params.maturityDate),
+      tx.pure.string(params.metadataUrl),
       tx.object(CONTRACT_INFO.clockObjectId),
     ],
   });
@@ -72,7 +80,6 @@ export function createBondProjectTx(params: {
  */
 export function buyBondTokenTx(params: {
   bondProjectId: string;
-  amount: number; // in MIST
   payment: any; // SUI coin object
 }): Transaction {
   const tx = new Transaction();
@@ -81,7 +88,6 @@ export function buyBondTokenTx(params: {
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::buy_bond_rwa_tokens`,
     arguments: [
       tx.object(params.bondProjectId),
-      tx.pure.u64(params.amount),
       params.payment,
       tx.object(CONTRACT_INFO.clockObjectId),
     ],
@@ -95,7 +101,6 @@ export function buyBondTokenTx(params: {
  */
 export function depositRedemptionFundsTx(params: {
   bondProjectId: string;
-  adminCap: string;
   payment: any; // SUI coin object
 }): Transaction {
   const tx = new Transaction();
@@ -104,8 +109,8 @@ export function depositRedemptionFundsTx(params: {
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::deposit_redemption_funds`,
     arguments: [
       tx.object(params.bondProjectId),
-      tx.object(params.adminCap),
       params.payment,
+      tx.object(CONTRACT_INFO.clockObjectId),
     ],
   });
 
@@ -138,7 +143,6 @@ export function redeemBondTokenTx(params: {
  */
 export function withdrawRaisedFundsTx(params: {
   bondProjectId: string;
-  adminCap: string;
   amount: number; // in MIST
 }): Transaction {
   const tx = new Transaction();
@@ -147,7 +151,6 @@ export function withdrawRaisedFundsTx(params: {
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::withdraw_raised_funds`,
     arguments: [
       tx.object(params.bondProjectId),
-      tx.object(params.adminCap),
       tx.pure.u64(params.amount),
     ],
   });
@@ -160,13 +163,12 @@ export function withdrawRaisedFundsTx(params: {
  */
 export function pauseSaleTx(params: {
   bondProjectId: string;
-  adminCap: string;
 }): Transaction {
   const tx = new Transaction();
 
   tx.moveCall({
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::pause_sale`,
-    arguments: [tx.object(params.bondProjectId), tx.object(params.adminCap)],
+    arguments: [tx.object(params.bondProjectId)],
   });
 
   return tx;
@@ -177,13 +179,12 @@ export function pauseSaleTx(params: {
  */
 export function resumeSaleTx(params: {
   bondProjectId: string;
-  adminCap: string;
 }): Transaction {
   const tx = new Transaction();
 
   tx.moveCall({
     target: `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::resume_sale`,
-    arguments: [tx.object(params.bondProjectId), tx.object(params.adminCap)],
+    arguments: [tx.object(params.bondProjectId)],
   });
 
   return tx;

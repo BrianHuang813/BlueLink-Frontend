@@ -3,7 +3,7 @@
  * All requests use cookie-based authentication (HttpOnly session cookie)
  */
 
-import { Bond, AuthChallenge, UserProfile, ApiResponse } from '../types';
+import { Bond, BondToken, AuthChallenge, UserProfile, ApiResponse } from '../types';
 
 // 從環境變量讀取 API 基礎 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -144,6 +144,44 @@ export async function getBondsByIssuer(issuerAddress: string): Promise<Bond[]> {
   return apiRequest(`/bonds/issuer/${issuerAddress}`);
 }
 
+// ==================== Bond Token Operations ====================
+
+/**
+ * Get bond token by ID
+ */
+export async function getBondTokenById(tokenId: number): Promise<BondToken> {
+  return apiRequest(`/bond-tokens/${tokenId}`);
+}
+
+/**
+ * Get bond token by on-chain ID
+ */
+export async function getBondTokenByOnChainId(onChainId: string): Promise<BondToken> {
+  return apiRequest(`/bond-tokens/on-chain/${onChainId}`);
+}
+
+/**
+ * Get bond tokens owned by a specific address
+ */
+export async function getBondTokensByOwner(
+  ownerAddress: string,
+  limit = 100,
+  offset = 0
+): Promise<BondToken[]> {
+  return apiRequest(`/bond-tokens/owner?owner=${ownerAddress}&limit=${limit}&offset=${offset}`);
+}
+
+/**
+ * Get bond tokens for a specific project
+ */
+export async function getBondTokensByProject(
+  projectId: string,
+  limit = 100,
+  offset = 0
+): Promise<BondToken[]> {
+  return apiRequest(`/bond-tokens/project?project_id=${projectId}&limit=${limit}&offset=${offset}`);
+}
+
 // ==================== Session Management ====================
 
 export interface Session {
@@ -177,6 +215,10 @@ export default {
   getAllBonds,
   getBondById,
   getBondsByIssuer,
+  getBondTokenById,
+  getBondTokenByOnChainId,
+  getBondTokensByOwner,
+  getBondTokensByProject,
   listSessions,
   revokeSession,
 };
