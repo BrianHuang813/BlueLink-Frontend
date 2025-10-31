@@ -1,69 +1,92 @@
 import React, { useState } from 'react';
-import { useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { CreateProjectForm } from '../types';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { CreateBondForm } from '../types';
 
 const CreateProjectPage: React.FC = () => {
-  const [form, setForm] = useState<CreateProjectForm>({
-    name: '',
-    description: '',
-    funding_goal: 0,
+  const [form, setForm] = useState<CreateBondForm>({
+    issuer_name: '',
+    bond_name: '',
+    bond_image_url: '',
+    token_image_url: '',
+    total_amount: 0,
+    annual_interest_rate: 0,
+    maturity_date: '',
+    metadata_url: '',
   });
   const [creating, setCreating] = useState(false);
 
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({
       ...prev,
-      [name]: name === 'funding_goal' ? parseFloat(value) || 0 : value,
+      [name]: ['total_amount', 'annual_interest_rate'].includes(name) 
+        ? parseFloat(value) || 0 
+        : value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentAccount || !form.name || !form.description || form.funding_goal <= 0) {
+    if (!currentAccount || !form.bond_name || !form.issuer_name || form.total_amount <= 0) {
       return;
     }
 
     setCreating(true);
     try {
-      const fundingGoalMist = form.funding_goal * 1000000000; // Convert SUI to MIST
+      const totalAmountMist = Math.floor(form.total_amount * 1000000000); // Convert SUI to MIST
+      const maturityTimestamp = new Date(form.maturity_date).getTime(); // Convert to timestamp
       
-      const txb = new TransactionBlock();
+      const tx = new Transaction();
       
       // =======================================================================
       // TODO: 將 '0x0' 替換為真實 Package ID
-      // 例如: target: '0x123abc...def::bluelink::create_project'
+      // 例如: target: '0x123abc...def::blue_link::create_bond_project'
       // =======================================================================
-      txb.moveCall({
-        target: '0x0::bluelink::create_project', // Replace with actual package address
+      tx.moveCall({
+        target: '0x0::blue_link::create_bond_project', // Replace with actual package address
         arguments: [
-          txb.pure(Array.from(new TextEncoder().encode(form.name))),
-          txb.pure(Array.from(new TextEncoder().encode(form.description))),
-          txb.pure(fundingGoalMist),
+          tx.pure.string(form.issuer_name),
+          tx.pure.string(form.bond_name),
+          tx.pure.string(form.bond_image_url || ''),
+          tx.pure.string(form.token_image_url || ''),
+          tx.pure.u64(totalAmountMist),
+          tx.pure.u64(form.annual_interest_rate),
+          tx.pure.u64(maturityTimestamp),
+          tx.pure.string(form.metadata_url || ''),
+          tx.object('0x6'), // Clock object
         ],
       });
 
       signAndExecute(
-        { transactionBlock: txb },
+        { transaction: tx },
         {
-          onSuccess: (result) => {
-            console.log('Project created successfully:', result);
-            alert('項目建立成功！');
-            setForm({ name: '', description: '', funding_goal: 0 });
+          onSuccess: (result: any) => {
+            console.log('Bond project created successfully:', result);
+            alert('債券項目建立成功！');
+            setForm({
+              issuer_name: '',
+              bond_name: '',
+              bond_image_url: '',
+              token_image_url: '',
+              total_amount: 0,
+              annual_interest_rate: 0,
+              maturity_date: '',
+              metadata_url: '',
+            });
           },
-          onError: (error) => {
-            console.error('Project creation failed:', error);
-            alert('項目建立失敗，請重試');
+          onError: (error: any) => {
+            console.error('Bond project creation failed:', error);
+            alert('債券項目建立失敗，請重試');
           }
         }
       );
     } catch (err) {
-      console.error('Error creating project transaction:', err);
+      console.error('Error creating bond project transaction:', err);
       alert('建立交易失敗，請重試');
     } finally {
       setCreating(false);
@@ -94,83 +117,162 @@ const CreateProjectPage: React.FC = () => {
       <div className="bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            建立新項目
+            建立新藍色債券
           </h1>
           <p className="text-gray-600">
-            在 BlueLink 平台上發布您的永續發展項目
+            在 BlueLink 平台上發布您的藍色債券項目
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              項目名稱 *
+            <label htmlFor="issuer_name" className="block text-sm font-medium text-gray-700 mb-2">
+              發行機構名稱 *
             </label>
             <input
               type="text"
-              id="name"
-              name="name"
-              value={form.name}
+              id="issuer_name"
+              name="issuer_name"
+              value={form.issuer_name}
               onChange={handleInputChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="輸入您的項目名稱"
+              placeholder="輸入發行機構名稱"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              項目描述 *
+            <label htmlFor="bond_name" className="block text-sm font-medium text-gray-700 mb-2">
+              債券名稱 *
             </label>
-            <textarea
-              id="description"
-              name="description"
-              value={form.description}
+            <input
+              type="text"
+              id="bond_name"
+              name="bond_name"
+              value={form.bond_name}
               onChange={handleInputChange}
               required
-              rows={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-              placeholder="詳細描述您的項目目標、用途以及如何促進永續發展..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="輸入您的債券名稱"
             />
           </div>
 
           <div>
-            <label htmlFor="funding_goal" className="block text-sm font-medium text-gray-700 mb-2">
-              募款目標 (SUI) *
+            <label htmlFor="bond_image_url" className="block text-sm font-medium text-gray-700 mb-2">
+              債券圖片 URL
+            </label>
+            <input
+              type="url"
+              id="bond_image_url"
+              name="bond_image_url"
+              value={form.bond_image_url}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="https://example.com/bond-image.jpg"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="token_image_url" className="block text-sm font-medium text-gray-700 mb-2">
+              NFT 代幣圖片 URL
+            </label>
+            <input
+              type="url"
+              id="token_image_url"
+              name="token_image_url"
+              value={form.token_image_url}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="https://example.com/token-image.jpg"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="total_amount" className="block text-sm font-medium text-gray-700 mb-2">
+              募集總額 (SUI) *
             </label>
             <input
               type="number"
-              id="funding_goal"
-              name="funding_goal"
-              value={form.funding_goal || ''}
+              id="total_amount"
+              name="total_amount"
+              value={form.total_amount || ''}
               onChange={handleInputChange}
               required
               min="1"
               step="0.1"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="輸入募款目標金額"
+              placeholder="輸入募集總額"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="annual_interest_rate" className="block text-sm font-medium text-gray-700 mb-2">
+              年利率 (%) *
+            </label>
+            <input
+              type="number"
+              id="annual_interest_rate"
+              name="annual_interest_rate"
+              value={form.annual_interest_rate || ''}
+              onChange={handleInputChange}
+              required
+              min="0"
+              step="0.01"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="例如：5.00 代表 5%"
             />
             <p className="text-sm text-gray-500 mt-1">
-              設定您需要的資金量，以 SUI 代幣計算
+              輸入百分比值，例如 5 代表 5% 年利率
             </p>
+          </div>
+
+          <div>
+            <label htmlFor="maturity_date" className="block text-sm font-medium text-gray-700 mb-2">
+              到期日 *
+            </label>
+            <input
+              type="date"
+              id="maturity_date"
+              name="maturity_date"
+              value={form.maturity_date}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="metadata_url" className="block text-sm font-medium text-gray-700 mb-2">
+              完整元數據 URL (Arweave)
+            </label>
+            <input
+              type="url"
+              id="metadata_url"
+              name="metadata_url"
+              value={form.metadata_url}
+              onChange={handleInputChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="https://arweave.net/..."
+            />
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="text-sm font-medium text-blue-800 mb-2">📋 建立須知</h3>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• 項目建立後將無法修改基本資訊</li>
+              <li>• 債券建立後基本資訊無法修改</li>
               <li>• 所有資金流向都會在區塊鏈上公開記錄</li>
-              <li>• 您可以隨時提取已募集的資金</li>
-              <li>• 捐贈者將收到鏈上數位憑證作為捐贈證明</li>
+              <li>• 您可以提取已募集的資金</li>
+              <li>• 投資者將收到債券 NFT 作為憑證</li>
+              <li>• 到期時需存入本金+利息以供贖回</li>
             </ul>
           </div>
 
           <button
             type="submit"
-            disabled={creating || !form.name || !form.description || form.funding_goal <= 0}
+            disabled={creating || !form.bond_name || !form.issuer_name || form.total_amount <= 0 || !form.maturity_date}
             className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {creating ? '正在建立項目...' : '建立項目'}
+            {creating ? '正在建立債券...' : '建立債券'}
           </button>
         </form>
 

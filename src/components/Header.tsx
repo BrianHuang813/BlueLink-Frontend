@@ -22,7 +22,7 @@ const Header: React.FC = () => {
                 to="/create" 
                 className="hover:text-blue-200 transition-colors"
               >
-                創建項目
+                發行債券
               </Link>
               <Link 
                 to="/dashboard" 

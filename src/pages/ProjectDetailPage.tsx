@@ -1,123 +1,151 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { projectService } from '../services/api';
-import { Project } from '../types';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { bondService } from '../services/api';
+import { Bond } from '../types';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [project, setProject] = useState<Project | null>(null);
+  const [bond, setBond] = useState<Bond | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [donationAmount, setDonationAmount] = useState<string>('');
-  const [donating, setDonating] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState<string>('');
+  const [purchasing, setPurchasing] = useState(false);
 
   const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   useEffect(() => {
-    const fetchProject = async () => {
+    const fetchBond = async () => {
       if (!id) return;
       
       try {
-        const projectData = await projectService.getProject(id);
-        setProject(projectData);
+        const bondData = await bondService.getBond(id);
+        setBond(bondData);
       } catch (err) {
-        setError('無法載入項目詳情');
-        console.error('Error fetching project:', err);
+        setError('無法載入債券詳情');
+        console.error('Error fetching bond:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProject();
+    fetchBond();
   }, [id]);
 
-  const handleDonate = async () => {
-    if (!project || !currentAccount || !donationAmount) return;
+  const handlePurchase = async () => {
+    if (!bond || !currentAccount || !purchaseAmount) return;
 
-    setDonating(true);
+    setPurchasing(true);
     try {
-      const amount = parseFloat(donationAmount) * 1000000000; // Convert SUI to MIST
+      const amount = parseFloat(purchaseAmount) * 1000000000; // Convert SUI to MIST
       
-      const txb = new TransactionBlock();
-      const [coin] = txb.splitCoins(txb.gas, [txb.pure(amount)]);
+      const tx = new Transaction();
+      const [coin] = tx.splitCoins(tx.gas, [amount]);
       
       // =======================================================================
       // TODO: 將 '0x0' 替換部署後的真實 Package ID
-      // 例如: target: '0x123abc...def::bluelink::donate'
+      // 例如: target: '0x123abc...def::blue_link::buy_bond_rwa_tokens'
       // =======================================================================
-      txb.moveCall({
-        target: '0x0::bluelink::donate', // Replace with actual package address
+      tx.moveCall({
+        target: '0x0::blue_link::buy_bond_rwa_tokens', // Replace with actual package address
         arguments: [
-          txb.object(project.id),
+          tx.object(bond.on_chain_id),
           coin,
+          tx.object('0x6'), // Clock object
         ],
       });
 
       signAndExecute(
-        { transactionBlock: txb },
+        { transaction: tx },
         {
-          onSuccess: (result) => {
-            console.log('Donation successful:', result);
-            setDonationAmount('');
-            // Refresh project data
+          onSuccess: (result: any) => {
+            console.log('Purchase successful:', result);
+            setPurchaseAmount('');
+            // Refresh bond data
             window.location.reload();
           },
-          onError: (error) => {
-            console.error('Donation failed:', error);
-            alert('捐贈失敗，請重試');
+          onError: (error: any) => {
+            console.error('Purchase failed:', error);
+            alert('購買失敗，請重試');
           }
         }
       );
     } catch (err) {
-      console.error('Error creating donation transaction:', err);
+      console.error('Error creating purchase transaction:', err);
       alert('建立交易失敗，請重試');
     } finally {
-      setDonating(false);
+      setPurchasing(false);
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-64">
-        <div className="text-lg">正在載入項目詳情...</div>
+        <div className="text-lg">正在載入債券詳情...</div>
       </div>
     );
   }
 
-  if (error || !project) {
+  if (error || !bond) {
     return (
       <div className="flex justify-center items-center min-h-64">
-        <div className="text-red-600 text-lg">{error || '項目不存在'}</div>
+        <div className="text-red-600 text-lg">{error || '債券不存在'}</div>
       </div>
     );
   }
 
-  const fundingGoal = parseFloat(project.funding_goal) / 1000000000;
-  const totalRaised = parseFloat(project.total_raised) / 1000000000;
-  const progressPercentage = fundingGoal > 0 ? (totalRaised / fundingGoal) * 100 : 0;
+  const totalAmount = bond.total_amount / 1000000000;
+  const amountRaised = bond.amount_raised / 1000000000;
+  const progressPercentage = totalAmount > 0 ? (amountRaised / totalAmount) * 100 : 0;
+  const interestRate = (bond.annual_interest_rate / 100).toFixed(2); // Convert basis points to percentage
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {bond.bond_image_url && (
+          <img src={bond.bond_image_url} alt={bond.bond_name} className="w-full h-64 object-cover" />
+        )}
         <div className="p-8">
           <div className="flex justify-between items-start mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">{project.name}</h1>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">{bond.bond_name}</h1>
+              <p className="text-gray-600 mt-1">發行機構：{bond.issuer_name}</p>
+            </div>
             <div className="text-sm text-gray-500">
-              項目 ID: {project.id.substring(0, 8)}...
+              債券 ID: {bond.on_chain_id.substring(0, 8)}...
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">年利率</div>
+              <div className="text-2xl font-bold text-blue-600">{interestRate}%</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">到期日</div>
+              <div className="text-lg font-bold text-green-600">
+                {new Date(bond.maturity_date).toLocaleDateString('zh-TW')}
+              </div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">發行日</div>
+              <div className="text-lg font-bold text-purple-600">
+                {new Date(bond.issue_date).toLocaleDateString('zh-TW')}
+              </div>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="text-sm text-gray-600 mb-1">狀態</div>
+              <div className="text-lg font-bold text-yellow-600">
+                {bond.active ? '募集中' : '已結束'}
+              </div>
             </div>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">項目描述</h2>
-            <p className="text-gray-600 leading-relaxed">{project.description}</p>
-          </div>
-
-          <div className="mb-8">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-xl font-semibold">募款進度</h2>
+              <h2 className="text-xl font-semibold">募集進度</h2>
               <span className="text-lg font-bold text-blue-600">
                 {progressPercentage.toFixed(1)}%
               </span>
@@ -131,65 +159,86 @@ const ProjectDetailPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {totalRaised.toFixed(2)} SUI
+                  {amountRaised.toFixed(2)} SUI
                 </div>
                 <div className="text-sm text-gray-600">已募集</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-800">
-                  {fundingGoal.toFixed(2)} SUI
+                  {totalAmount.toFixed(2)} SUI
                 </div>
-                <div className="text-sm text-gray-600">目標金額</div>
+                <div className="text-sm text-gray-600">募集總額</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {project.donor_count}
+                  {bond.tokens_issued}
                 </div>
-                <div className="text-sm text-gray-600">捐贈者</div>
+                <div className="text-sm text-gray-600">已發行代幣</div>
               </div>
             </div>
           </div>
 
-          {currentAccount ? (
+          {currentAccount && bond.active ? (
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">支持此項目</h3>
+              <h3 className="text-lg font-semibold mb-4">購買債券</h3>
               <div className="flex space-x-4">
                 <input
                   type="number"
-                  placeholder="輸入捐贈金額 (SUI)"
-                  value={donationAmount}
-                  onChange={(e) => setDonationAmount(e.target.value)}
+                  placeholder="輸入購買金額 (SUI)"
+                  value={purchaseAmount}
+                  onChange={(e) => setPurchaseAmount(e.target.value)}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   step="0.1"
                   min="0.1"
                 />
                 <button
-                  onClick={handleDonate}
-                  disabled={donating || !donationAmount || parseFloat(donationAmount) <= 0}
+                  onClick={handlePurchase}
+                  disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) <= 0}
                   className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {donating ? '處理中...' : '捐贈'}
+                  {purchasing ? '處理中...' : '購買'}
                 </button>
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                最少捐贈 0.1 SUI。您的捐贈將獲得一個鏈上數位憑證作為證明。
+                最少購買 0.1 SUI。您將獲得債券 NFT 代幣作為憑證。
+              </p>
+              <p className="text-sm text-blue-600 mt-1">
+                💰 到期時可獲得本金 + {interestRate}% 年利率的利息
               </p>
             </div>
-          ) : (
+          ) : !currentAccount ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-              <p className="text-yellow-800 mb-4">請連接錢包以支持此項目</p>
+              <p className="text-yellow-800 mb-4">請連接錢包以購買債券</p>
               <div className="text-sm text-yellow-700">
-                連接錢包後，您可以直接在此頁面進行捐贈
+                連接錢包後，您可以直接在此頁面購買債券
               </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+              <p className="text-gray-600">此債券已停止募集</p>
             </div>
           )}
 
           <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="text-lg font-semibold mb-2">項目建立者</h3>
-            <div className="text-sm text-gray-600 font-mono">
-              {project.creator}
+            <h3 className="text-lg font-semibold mb-2">發行機構</h3>
+            <div className="text-sm text-gray-600">
+              <p className="font-semibold">{bond.issuer_name}</p>
+              <p className="font-mono text-xs mt-1">{bond.issuer_address}</p>
             </div>
           </div>
+
+          {bond.metadata_url && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <a 
+                href={bond.metadata_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 text-sm"
+              >
+                📄 查看完整元數據
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
