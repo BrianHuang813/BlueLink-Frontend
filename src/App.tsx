@@ -5,7 +5,7 @@ import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
-import CreateProjectPage from './pages/CreateProjectPage';
+import CreateBondPage from './pages/CreateBondPage';
 import DashboardPage from './pages/DashboardPage';
 import BondMarketplacePage from './pages/BondMarketplacePage';
 import InvestorPortfolioPage from './pages/InvestorPortfolioPage';
@@ -84,7 +84,7 @@ function App() {
               } />
               <Route path="/create" element={
                 <ProtectedRoute>
-                  <CreateProjectPage />
+                  <CreateBondPage />
                 </ProtectedRoute>
               } />
               <Route path="/dashboard" element={
