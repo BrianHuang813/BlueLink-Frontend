@@ -26,28 +26,72 @@ async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: 'include', // Include cookies in request
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      credentials: 'include', // Include cookies in request
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
 
-  // Auto redirect to login on unauthorized
-  if (response.status === 401) {
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
+    // Auto redirect to login on unauthorized
+    if (response.status === 401) {
+      window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
+
+    // Check if response is not ok (4xx or 5xx)
+    if (!response.ok) {
+      let errorMessage = `API request failed with status ${response.status}`;
+      
+      // Try to parse error response as JSON
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } else {
+          // If not JSON, try to get text
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+      } catch (parseError) {
+        console.error('Failed to parse error response:', parseError);
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    // Parse successful response
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Expected JSON response from server');
+    }
+
+    const data = await response.json();
+    
+    // Check if response follows ApiResponse<T> format
+    if (typeof data === 'object' && 'success' in data) {
+      const apiResponse = data as ApiResponse<T>;
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.message || apiResponse.error || 'API request failed');
+      }
+      return apiResponse.data as T;
+    }
+    
+    // Otherwise, assume the response is the data itself
+    return data as T;
+  } catch (error) {
+    // Handle network errors or other fetch failures
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('無法連接到伺服器，請檢查網路連接');
+    }
+    throw error;
   }
-
-  const data: ApiResponse<T> = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.message || data.error || 'API request failed');
-  }
-
-  return data.data as T;
 }
 
 // ==================== Public Endpoints ====================
