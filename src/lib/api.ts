@@ -4,10 +4,11 @@
  */
 
 import { Bond, AuthChallenge, UserProfile, ApiResponse } from '../types';
+import { Config } from './config';
 
-// 從環境變量讀取 API 基礎 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK === 'true';
+// 從集中配置讀取 API 基礎 URL
+const API_BASE_URL = Config.API_BASE_URL || 'http://localhost:8080/api/v1';
+const USE_MOCK_DATA = Config.USE_MOCK;
 
 // 開發環境顯示配置
 if (import.meta.env.DEV) {

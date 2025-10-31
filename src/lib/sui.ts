@@ -6,13 +6,14 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { SuiClient } from '@mysten/sui/client';
 import { BondProjectInfo } from '../types';
+import { Config } from './config';
 
-// 從環境變量讀取 Sui 配置
+// 從集中配置讀取 Sui 配置
 export const SUI_CONFIG = {
-  network: import.meta.env.VITE_SUI_NETWORK || 'testnet',
-  rpcUrl: import.meta.env.VITE_SUI_RPC_URL || 'https://fullnode.testnet.sui.io:443',
-  packageId: import.meta.env.VITE_SUI_PACKAGE_ID || '',
-  clockObjectId: import.meta.env.VITE_SUI_CLOCK_OBJECT_ID || '0x6',
+  network: Config.SUI_NETWORK || 'testnet',
+  rpcUrl: Config.SUI_RPC_URL || 'https://fullnode.testnet.sui.io:443',
+  packageId: Config.SUI_PACKAGE_ID || '',
+  clockObjectId: Config.SUI_CLOCK_OBJECT_ID || '0x6',
 };
 
 // 開發環境顯示配置
