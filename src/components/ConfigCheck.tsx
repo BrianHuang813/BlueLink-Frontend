@@ -4,17 +4,18 @@
  */
 
 import { useEffect } from 'react';
+import { Config } from '../lib/config';
 
 export function ConfigCheck() {
   useEffect(() => {
     if (import.meta.env.DEV) {
       const config = {
         mode: import.meta.env.MODE,
-        apiUrl: import.meta.env.VITE_API_BASE_URL,
-        suiNetwork: import.meta.env.VITE_SUI_NETWORK,
-        suiRpc: import.meta.env.VITE_SUI_RPC_URL,
-        packageId: import.meta.env.VITE_SUI_PACKAGE_ID,
-        useMock: import.meta.env.VITE_USE_MOCK,
+        apiUrl: Config.API_BASE_URL,
+        suiNetwork: Config.SUI_NETWORK,
+        suiRpc: Config.SUI_RPC_URL,
+        packageId: Config.SUI_PACKAGE_ID,
+        useMock: Config.USE_MOCK,
       };
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -41,9 +42,9 @@ export function ConfigCheck() {
   }
 
   const config = {
-    apiUrl: import.meta.env.VITE_API_BASE_URL,
-    suiNetwork: import.meta.env.VITE_SUI_NETWORK,
-    packageId: import.meta.env.VITE_SUI_PACKAGE_ID,
+    apiUrl: Config.API_BASE_URL,
+    suiNetwork: Config.SUI_NETWORK,
+    packageId: Config.SUI_PACKAGE_ID,
   };
 
   return (
