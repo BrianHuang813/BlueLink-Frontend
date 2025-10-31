@@ -10,8 +10,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: unknown) {
-    console.error('Unhandled UI error:', error);
+  componentDidCatch(error: unknown, errorInfo: React.ErrorInfo) {
+    console.error('Unhandled UI error:', error, errorInfo);
   }
 
   render() {
