@@ -4,17 +4,18 @@
  */
 
 import React, { useState } from 'react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { useBonds } from '../hooks/useBonds';
 import { Bond } from '../types';
 import BondCard from '../components/BondCard';
 import BuyBondModal from '../components/BuyBondModal';
 import { parseTransactionError } from '../lib/sui';
-// TODO: Import buyBondTokenTx when implementing full transaction flow
-// import { buyBondTokenTx } from '../lib/sui';
+import { suiToMist } from '../lib/utils';
 
 const BondMarketplacePage: React.FC = () => {
   const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const { bonds, loading, error, refetch } = useBonds(15000); // Poll every 15s
   const [selectedBond, setSelectedBond] = useState<Bond | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,31 +38,48 @@ const BondMarketplacePage: React.FC = () => {
       alert('請先連接錢包');
       return;
     }
-
+    
     try {
-      // This is a simplified version - you'll need to integrate with @mysten/dapp-kit
-      // to actually sign and execute the transaction
-      console.log('Purchasing bond:', { bondId, amount });
+      // Create transaction to buy bond tokens
+      const amountInMist = suiToMist(amount);
+      const tx = new Transaction();
       
-      // Example transaction (you'll need to implement the actual signing)
-      // const tx = buyBondTokenTx({
-      //   bondProjectId: bondId,
-      //   amount: amount,
-      //   payment: suiCoin, // You'll need to get this from wallet
-      // });
+      // Split coins for payment
+      const [coin] = tx.splitCoins(tx.gas, [amountInMist]);
       
-      // await signAndExecuteTransactionBlock({ transactionBlock: tx });
-      
-      // Show success message
-      alert('購買成功！交易已提交至區塊鏈');
-      
-      // Refresh bonds data
-      await refetch();
-      
+      // Call buy_bond_rwa_tokens
+      tx.moveCall({
+        target: `${import.meta.env.VITE_SUI_PACKAGE_ID}::blue_link::buy_bond_rwa_tokens`,
+        arguments: [
+          tx.object(bondId),
+          coin,
+          tx.object('0x6'), // Clock object
+        ],
+      });
+
+      // Sign and execute transaction
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            console.log('Purchase successful:', result);
+            alert('購買成功！交易已提交至區塊鏈');
+            setIsModalOpen(false);
+            setSelectedBond(null);
+            // Refresh bonds data
+            refetch();
+          },
+          onError: (error) => {
+            console.error('Purchase failed:', error);
+            const { message } = parseTransactionError(error);
+            alert(`購買失敗: ${message}`);
+          },
+        }
+      );
     } catch (error) {
-      console.error('Purchase failed:', error);
+      console.error('Transaction creation failed:', error);
       const { message } = parseTransactionError(error);
-      alert(`購買失敗: ${message}`);
+      alert(`交易建立失敗: ${message}`);
     }
   };
 

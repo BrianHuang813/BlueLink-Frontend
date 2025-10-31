@@ -7,7 +7,6 @@ import React, { useState } from 'react';
 import { Bond } from '../types';
 import {
   mistToSui,
-  suiToMist,
   formatInterestRate,
   formatSuiAmount,
   formatDateString,
@@ -46,8 +45,8 @@ const BuyBondModal: React.FC<BuyBondModalProps> = ({
 
     setIsLoading(true);
     try {
-      const amountMist = suiToMist(amountNum);
-      await onConfirm(bond.on_chain_id, amountMist);
+      // Pass amount in SUI, the handler will convert to MIST
+      await onConfirm(bond.on_chain_id, amountNum);
       setAmount('');
       onClose();
     } catch (error) {
