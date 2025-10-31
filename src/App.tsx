@@ -10,13 +10,14 @@ import DashboardPage from './pages/DashboardPage';
 import BondMarketplacePage from './pages/BondMarketplacePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider } from './components/ToastProvider';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { getUserProfile } from './lib/api';
 
 import '@mysten/dapp-kit/dist/index.css';
 
 /**
  * Session verification component
- * Validates session on app startup
+ * Validates session on app startup using backend protected endpoint
  */
 function SessionValidator() {
   const navigate = useNavigate();
@@ -45,55 +46,72 @@ function SessionValidator() {
     validateSession();
   }, [navigate]);
 
+  useEffect(() => {
+    // Listen for unauthorized events from axios interceptor
+    const handleUnauthorized = () => {
+      console.warn('Unauthorized event received, redirecting to login');
+      localStorage.removeItem('user');
+      navigate('/login');
+    };
+
+    window.addEventListener('bluelink:unauthorized', handleUnauthorized);
+
+    return () => {
+      window.removeEventListener('bluelink:unauthorized', handleUnauthorized);
+    };
+  }, [navigate]);
+
   return null;
 }
 
 function App() {
   return (
-    <ToastProvider>
-      <Router>
-        <SessionValidator />
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <main className="container mx-auto px-4 py-8">
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<LoginPage />} />
-              
-              {/* Protected routes */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <HomePage />
-                </ProtectedRoute>
-              } />
-              <Route path="/bonds" element={
-                <ProtectedRoute>
-                  <BondMarketplacePage />
-                </ProtectedRoute>
-              } />
-              <Route path="/project/:id" element={
-                <ProtectedRoute>
-                  <ProjectDetailPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/create" element={
-                <ProtectedRoute>
-                  <CreateProjectPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              } />
-              
-              {/* Catch all - redirect to home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <Router>
+          <SessionValidator />
+          <div className="min-h-screen bg-gray-50">
+            <Header />
+            <main className="container mx-auto px-4 py-8">
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<LoginPage />} />
+                
+                {/* Protected routes */}
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <HomePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/bonds" element={
+                  <ProtectedRoute>
+                    <BondMarketplacePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/project/:id" element={
+                  <ProtectedRoute>
+                    <ProjectDetailPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/create" element={
+                  <ProtectedRoute>
+                    <CreateProjectPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Catch all - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+          </div>
+        </Router>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 
