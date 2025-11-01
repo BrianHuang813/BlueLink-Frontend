@@ -13,18 +13,38 @@ const Header: React.FC = () => {
 
   // Check login status on mount and when account changes
   useEffect(() => {
-    const userJson = localStorage.getItem('user');
-    if (userJson) {
-      try {
-        const userData = JSON.parse(userJson);
-        setUser(userData);
-      } catch (error) {
-        console.error('Failed to parse user data:', error);
-        localStorage.removeItem('user');
+    const loadUser = () => {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        try {
+          const userData = JSON.parse(userJson);
+          setUser(userData);
+          console.log('👤 Header - User loaded:', userData.role, userData.wallet_address.slice(0, 10));
+        } catch (error) {
+          console.error('Failed to parse user data:', error);
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+        console.log('👤 Header - No user found');
       }
-    } else {
-      setUser(null);
-    }
+    };
+
+    // 初始加載
+    loadUser();
+
+    // 監聽自定義事件 (當登入成功時觸發)
+    const handleUserUpdate = () => {
+      console.log('👤 Header - Received user update event');
+      loadUser();
+    };
+    
+    window.addEventListener('userLoggedIn', handleUserUpdate);
+    
+    return () => {
+      window.removeEventListener('userLoggedIn', handleUserUpdate);
+    };
   }, [currentAccount]);
 
   const handleLogout = async () => {
@@ -67,26 +87,25 @@ const Header: React.FC = () => {
               
               {user && (
                 <>
-                  {/* 購買者看到債券市場 */}
-                  {(user.role === 'buyer' || user.role === 'admin') && (
-                    <Link 
-                      to="/bonds" 
-                      className="hover:text-blue-200 transition-colors"
-                    >
-                      債券市場
-                    </Link>
-                  )}
+                  {/* 債券市場 - 所有角色都可以看 */}
+                  <Link 
+                    to="/bonds" 
+                    className="hover:text-blue-200 transition-colors"
+                  >
+                    債券市場
+                  </Link>
                   
-                  {/* 發行者看到創建項目 */}
+                  {/* 發行債券 - 只有發行者和管理員 */}
                   {(user.role === 'issuer' || user.role === 'admin') && (
                     <Link 
                       to="/create" 
                       className="hover:text-blue-200 transition-colors"
                     >
-                      創建債券
+                      發行債券
                     </Link>
                   )}
                   
+                  {/* 我的儀表板 - 所有角色 */}
                   <Link 
                     to="/dashboard" 
                     className="hover:text-blue-200 transition-colors"

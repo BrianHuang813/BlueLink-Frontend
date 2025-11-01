@@ -138,9 +138,15 @@ const BondCard: React.FC<BondCardProps> = ({ bond, onBuy }) => {
 
       {/* Buy Button */}
       {isIssuer ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg py-3 px-4">
+          <p className="text-center text-sm text-blue-700 font-medium">
+            您是此債券的發行方
+          </p>
+        </div>
+      ) : currentUser?.role === 'issuer' ? (
         <div className="bg-gray-100 border border-gray-300 rounded-lg py-3 px-4">
           <p className="text-center text-sm text-gray-600 font-medium">
-            這是您發行的債券
+            發行方無法購買債券
           </p>
         </div>
       ) : (

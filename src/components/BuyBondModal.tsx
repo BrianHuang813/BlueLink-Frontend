@@ -33,14 +33,25 @@ const BuyBondModal: React.FC<BuyBondModalProps> = ({
 
   const totalAmountSui = mistToSui(bond.total_amount);
   const raisedAmountSui = mistToSui(bond.amount_raised);
-  const availableSui = totalAmountSui - raisedAmountSui;
+  // 確保 availableSui 至少為 0，並且如果數據有問題就用 total_amount
+  const availableSui = Math.max(0, totalAmountSui > 0 ? totalAmountSui - raisedAmountSui : totalAmountSui);
   const amountNum = parseFloat(amount) || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (amountNum <= 0 || amountNum > availableSui) {
-      alert('請輸入有效的購買金額');
+    if (amountNum <= 0) {
+      alert('購買金額必須大於 0');
+      return;
+    }
+    
+    if (availableSui <= 0) {
+      alert('此債券已售罄');
+      return;
+    }
+    
+    if (amountNum > availableSui) {
+      alert(`購買金額不能超過可購買額度 ${formatSuiAmount(availableSui)} SUI`);
       return;
     }
 
@@ -105,6 +116,15 @@ const BuyBondModal: React.FC<BuyBondModalProps> = ({
           </div>
         </div>
 
+        {/* Sold Out Warning */}
+        {availableSui <= 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-700 font-medium text-center">
+              此債券已售罄，無法購買
+            </p>
+          </div>
+        )}
+
         {/* Amount Input Form */}
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
@@ -120,15 +140,15 @@ const BuyBondModal: React.FC<BuyBondModalProps> = ({
                 step="0.000000001"
                 min="0"
                 max={availableSui}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isLoading}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                disabled={isLoading || availableSui <= 0}
                 required
               />
               <button
                 type="button"
                 onClick={handleMaxClick}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 hover:text-blue-700"
-                disabled={isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400"
+                disabled={isLoading || availableSui <= 0}
               >
                 最大
               </button>
@@ -182,9 +202,9 @@ const BuyBondModal: React.FC<BuyBondModalProps> = ({
             <button
               type="submit"
               className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              disabled={isLoading || amountNum <= 0 || amountNum > availableSui}
+              disabled={isLoading || amountNum <= 0 || amountNum > availableSui || availableSui <= 0}
             >
-              {isLoading ? '處理中...' : '確認購買'}
+              {isLoading ? '處理中...' : availableSui <= 0 ? '已售罄' : '確認購買'}
             </button>
           </div>
         </form>

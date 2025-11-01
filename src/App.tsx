@@ -66,7 +66,7 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/bonds" element={
-                <ProtectedRoute allowedRoles={['buyer', 'admin']}>
+                <ProtectedRoute allowedRoles={['buyer', 'issuer', 'admin']}>
                   <BondMarketplacePage />
                 </ProtectedRoute>
               } />

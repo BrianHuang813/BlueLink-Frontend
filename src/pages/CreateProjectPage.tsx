@@ -60,7 +60,8 @@ const CreateProjectPage: React.FC = () => {
     setCreating(true);
     try {
       // Convert inputs to contract format
-      const totalAmountMist = form.totalAmount * 1000000000; // Convert SUI to MIST
+      // 使用 Math.floor 確保是整數，避免精度問題
+      const totalAmountMist = Math.floor(form.totalAmount * 1000000000); // Convert SUI to MIST
       const interestRateBasisPoints = Math.round(form.annualInterestRate * 100); // Convert percentage to basis points
       const maturityTimestamp = new Date(form.maturityDate).getTime(); // Convert to Unix timestamp in ms
 
@@ -70,6 +71,15 @@ const CreateProjectPage: React.FC = () => {
         setCreating(false);
         return;
       }
+
+      console.log('📝 Creating bond with:', {
+        totalAmount_SUI: form.totalAmount,
+        totalAmount_MIST: totalAmountMist,
+        interestRate_Percent: form.annualInterestRate,
+        interestRate_BasisPoints: interestRateBasisPoints,
+        maturityDate: form.maturityDate,
+        maturityTimestamp: maturityTimestamp
+      });
 
       const txb = new Transaction();
       
@@ -93,15 +103,17 @@ const CreateProjectPage: React.FC = () => {
         { transaction: txb },
         {
           onSuccess: async (result: any) => {
-            console.log('Bond project created successfully:', result);
-            console.log('Transaction digest:', result.digest);
+            console.log('✅ Bond project created successfully:', result);
+            console.log('📊 Transaction digest:', result.digest);
+            console.log('💰 Total amount (MIST):', totalAmountMist);
+            console.log('💰 Total amount (SUI):', totalAmountMist / 1000000000);
             
             // Notify backend to index this transaction
             try {
               await notifyBackendAboutTransaction(result.digest, 'bond_created');
-              console.log('Backend notified successfully');
+              console.log('✅ Backend notified successfully');
             } catch (err) {
-              console.warn('Failed to notify backend, but transaction succeeded:', err);
+              console.warn('⚠️ Failed to notify backend, but transaction succeeded:', err);
             }
             
             // Show success message

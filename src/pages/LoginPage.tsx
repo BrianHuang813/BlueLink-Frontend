@@ -55,6 +55,10 @@ const LoginPage: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(user));
       console.log('User data saved to localStorage:', user);
 
+      // 觸發自定義事件通知 Header 更新
+      window.dispatchEvent(new Event('userLoggedIn'));
+      console.log('Dispatched userLoggedIn event');
+
       // Step 5: 導向主頁
       console.log('Redirecting to dashboard...');
       navigate('/dashboard');
