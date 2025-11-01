@@ -3,8 +3,8 @@
  * Displays a bond in card format with key information and buy action
  */
 
-import React from 'react';
-import { Bond } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Bond, UserProfile } from '../types';
 import {
   mistToSui,
   formatInterestRate,
@@ -20,11 +20,27 @@ interface BondCardProps {
 }
 
 const BondCard: React.FC<BondCardProps> = ({ bond, onBuy }) => {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  
+  useEffect(() => {
+    const userJson = localStorage.getItem('user');
+    if (userJson) {
+      try {
+        setCurrentUser(JSON.parse(userJson));
+      } catch (error) {
+        console.error('Failed to parse user data:', error);
+      }
+    }
+  }, []);
+
   const totalAmountSui = mistToSui(bond.total_amount);
   const raisedAmountSui = mistToSui(bond.amount_raised);
   const progress = calculateProgress(bond.amount_raised, bond.total_amount);
   const daysLeft = daysUntilMaturity(bond.maturity_date);
   const isMatured = daysLeft === 0;
+  
+  // Check if current user is the issuer of this bond
+  const isIssuer = currentUser?.wallet_address.toLowerCase() === bond.issuer_address.toLowerCase();
 
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-200">
@@ -121,21 +137,29 @@ const BondCard: React.FC<BondCardProps> = ({ bond, onBuy }) => {
       </div>
 
       {/* Buy Button */}
-      <button
-        onClick={() => onBuy(bond)}
-        disabled={!bond.active || progress >= 100}
-        className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-          bond.active && progress < 100
-            ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        }`}
-      >
-        {!bond.active
-          ? '銷售已暫停'
-          : progress >= 100
-          ? '已售罄'
-          : '購買債券'}
-      </button>
+      {isIssuer ? (
+        <div className="bg-gray-100 border border-gray-300 rounded-lg py-3 px-4">
+          <p className="text-center text-sm text-gray-600 font-medium">
+            這是您發行的債券
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={() => onBuy(bond)}
+          disabled={!bond.active || progress >= 100}
+          className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+            bond.active && progress < 100
+              ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          {!bond.active
+            ? '銷售已暫停'
+            : progress >= 100
+            ? '已售罄'
+            : '購買債券'}
+        </button>
+      )}
 
       {/* On-chain ID (for debug) */}
       <div className="mt-3 pt-3 border-t border-gray-100">

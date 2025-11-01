@@ -268,11 +268,20 @@ function parseBondProjectInfo(result: any): BondProjectInfo {
   return {
     bondName: result.bondName || '',
     issuer: result.issuer || '',
+    issuerName: result.issuerName || '',
+    bondImageUrl: result.bondImageUrl || '',
+    tokenImageUrl: result.tokenImageUrl || '',
     totalAmount: result.totalAmount || '0',
     amountRaised: result.amountRaised || '0',
+    amountRedeemed: result.amountRedeemed || '0',
+    tokensIssued: result.tokensIssued || '0',
+    tokensRedeemed: result.tokensRedeemed || '0',
     annualInterestRate: result.annualInterestRate || 0,
     maturityDate: result.maturityDate || 0,
+    issueDate: result.issueDate || 0,
     active: result.active || false,
+    redeemable: result.redeemable || false,
+    metadataUrl: result.metadataUrl || '',
   };
 }
 
@@ -282,6 +291,153 @@ function parseBondProjectInfo(result: any): BondProjectInfo {
 function parseRedeemableResult(result: any): boolean {
   // Placeholder - adjust based on actual response structure
   return result?.results?.[0]?.returnValues?.[0]?.[0] === 1;
+}
+
+/**
+ * Get objects owned by address filtered by type
+ */
+export async function getOwnedObjectsByType(
+  address: string,
+  objectType: string
+): Promise<any[]> {
+  try {
+    const objects = await suiClient.getOwnedObjects({
+      owner: address,
+      filter: {
+        StructType: objectType,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+        showOwner: true,
+      },
+    });
+
+    return objects.data || [];
+  } catch (error) {
+    console.error('Error fetching owned objects:', error);
+    return [];
+  }
+}
+
+/**
+ * Get BondProject objects owned by user (as issuer)
+ * Returns BondProject objects where user is the issuer
+ */
+export async function getUserIssuedBonds(
+  userAddress: string
+): Promise<any[]> {
+  try {
+    // Query for BondProject objects
+    const bondProjectType = `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::BondProject`;
+    const objects = await getOwnedObjectsByType(userAddress, bondProjectType);
+    
+    console.log('User issued bonds (raw):', objects);
+    
+    // Filter and parse bond projects
+    const bonds = objects
+      .filter(obj => obj.data?.content)
+      .map(obj => {
+        const content = obj.data.content as any;
+        return {
+          objectId: obj.data.objectId,
+          ...content.fields,
+        };
+      });
+
+    return bonds;
+  } catch (error) {
+    console.error('Error fetching user issued bonds:', error);
+    return [];
+  }
+}
+
+/**
+ * Get BondToken objects owned by user (as investor)
+ * Returns BondToken NFTs owned by the user
+ */
+export async function getUserBondTokens(
+  userAddress: string
+): Promise<any[]> {
+  try {
+    // Query for BondToken objects
+    const bondTokenType = `${CONTRACT_INFO.packageId}::${CONTRACT_INFO.module}::BondToken`;
+    const objects = await getOwnedObjectsByType(userAddress, bondTokenType);
+    
+    console.log('User bond tokens (raw):', objects);
+    
+    // Parse bond tokens
+    const tokens = objects
+      .filter(obj => obj.data?.content)
+      .map(obj => {
+        const content = obj.data.content as any;
+        return {
+          objectId: obj.data.objectId,
+          ...content.fields,
+        };
+      });
+
+    return tokens;
+  } catch (error) {
+    console.error('Error fetching user bond tokens:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all BondProject objects from the chain
+ * Note: This might be expensive for large datasets
+ * For marketplace listing, prefer using backend API
+ */
+export async function getAllBondProjects(): Promise<any[]> {
+  try {
+    // This is a simplified version - in production you might want to:
+    // 1. Query events instead
+    // 2. Use a backend indexer
+    // 3. Implement pagination
+    
+    // Note: queryEvents or dynamic field queries might be more efficient
+    // This is a basic implementation
+    console.warn('getAllBondProjects: Consider using backend API for better performance');
+    
+    // TODO: Implement event-based querying when needed
+    // For now, rely on backend API for marketplace
+    return [];
+  } catch (error) {
+    console.error('Error fetching all bond projects:', error);
+    return [];
+  }
+}
+
+/**
+ * Notify backend about on-chain transaction
+ * Backend will index the object from chain
+ */
+export async function notifyBackendAboutTransaction(
+  transactionDigest: string,
+  eventType: 'bond_created' | 'bond_purchased' | 'bond_redeemed' | 'funds_withdrawn' | 'redemption_deposited'
+): Promise<void> {
+  try {
+    // This would call your backend API
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/bonds/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        transaction_digest: transactionDigest,
+        event_type: eventType,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to notify backend:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error notifying backend:', error);
+    // Don't throw - this is non-critical
+  }
 }
 
 /**

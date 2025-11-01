@@ -22,11 +22,13 @@ export function useBonds(pollInterval = 10000): UseBondsResult {
   const fetchBonds = useCallback(async () => {
     try {
       const data = await getAllBonds();
-      setBonds(data);
+      // Ensure data is an array
+      setBonds(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch bonds:', err);
       setError(err instanceof Error ? err.message : '無法載入債券列表');
+      setBonds([]);
     } finally {
       setLoading(false);
     }

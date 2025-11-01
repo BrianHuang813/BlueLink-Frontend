@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import DashboardPage from './pages/DashboardPage';
 import BondMarketplacePage from './pages/BondMarketplacePage';
@@ -67,17 +66,14 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/bonds" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['buyer', 'admin']}>
                   <BondMarketplacePage />
                 </ProtectedRoute>
               } />
-              <Route path="/project/:id" element={
-                <ProtectedRoute>
-                  <ProjectDetailPage />
-                </ProtectedRoute>
-              } />
+              {/* Legacy route - redirect to bonds page */}
+              <Route path="/project/:id" element={<Navigate to="/bonds" replace />} />
               <Route path="/create" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['issuer', 'admin']}>
                   <CreateProjectPage />
                 </ProtectedRoute>
               } />

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
 import { logout } from '../lib/api';
+import { UserProfile } from '../types';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentAccount = useCurrentAccount();
-  const [user, setUser] = useState<{ wallet_address: string } | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Check login status on mount and when account changes
@@ -56,34 +57,45 @@ const Header: React.FC = () => {
             <Link to="/" className="text-2xl font-bold">
               BlueLink
             </Link>
-            {user && (
-              <nav className="hidden md:flex space-x-6">
-                <Link 
-                  to="/" 
-                  className="hover:text-blue-200 transition-colors"
-                >
-                  首頁
-                </Link>
-                <Link 
-                  to="/bonds" 
-                  className="hover:text-blue-200 transition-colors"
-                >
-                  債券市場
-                </Link>
-                <Link 
-                  to="/create" 
-                  className="hover:text-blue-200 transition-colors"
-                >
-                  創建項目
-                </Link>
-                <Link 
-                  to="/dashboard" 
-                  className="hover:text-blue-200 transition-colors"
-                >
-                  我的儀表板
-                </Link>
-              </nav>
-            )}
+            <nav className="hidden md:flex space-x-6">
+              <Link 
+                to="/" 
+                className="hover:text-blue-200 transition-colors"
+              >
+                首頁
+              </Link>
+              
+              {user && (
+                <>
+                  {/* 購買者看到債券市場 */}
+                  {(user.role === 'buyer' || user.role === 'admin') && (
+                    <Link 
+                      to="/bonds" 
+                      className="hover:text-blue-200 transition-colors"
+                    >
+                      債券市場
+                    </Link>
+                  )}
+                  
+                  {/* 發行者看到創建項目 */}
+                  {(user.role === 'issuer' || user.role === 'admin') && (
+                    <Link 
+                      to="/create" 
+                      className="hover:text-blue-200 transition-colors"
+                    >
+                      創建債券
+                    </Link>
+                  )}
+                  
+                  <Link 
+                    to="/dashboard" 
+                    className="hover:text-blue-200 transition-colors"
+                  >
+                    我的儀表板
+                  </Link>
+                </>
+              )}
+            </nav>
           </div>
           
           <div className="flex items-center space-x-4">

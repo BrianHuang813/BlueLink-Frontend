@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { projectService } from '../services/api';
+// import { projectService } from '../services/api'; // TODO: 改用債券 API
 import { Project } from '../types';
 
 const ProjectDetailPage: React.FC = () => {
@@ -21,8 +21,10 @@ const ProjectDetailPage: React.FC = () => {
       if (!id) return;
       
       try {
-        const projectData = await projectService.getProject(id);
-        setProject(projectData);
+        // TODO: 改用債券詳情 API
+        // const projectData = await projectService.getProject(id);
+        // setProject(projectData);
+        setProject(null); // 暫時使用空數據
       } catch (err) {
         setError('無法載入項目詳情');
         console.error('Error fetching project:', err);

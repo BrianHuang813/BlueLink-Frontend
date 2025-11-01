@@ -74,7 +74,16 @@ async function apiRequest<T>(
 
     const data = await response.json();
     
-    // Check if response follows ApiResponse<T> format
+    // Check if response follows backend format: {code, message, data}
+    if (typeof data === 'object' && 'code' in data && 'data' in data) {
+      // Backend format
+      if (data.code >= 400) {
+        throw new Error(data.message || 'API request failed');
+      }
+      return data.data as T;
+    }
+    
+    // Check if response follows ApiResponse<T> format: {success, data}
     if (typeof data === 'object' && 'success' in data) {
       const apiResponse = data as ApiResponse<T>;
       if (!apiResponse.success) {
@@ -165,6 +174,26 @@ export async function getUserProfile(): Promise<UserProfile> {
   return apiRequest('/profile');
 }
 
+/**
+ * Update current user profile (requires authentication)
+ */
+export async function updateUserProfile(data: {
+  issuer_name?: string;
+  issuer_description?: string;
+}): Promise<UserProfile> {
+  return apiRequest('/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Get full user profile with extended information (requires authentication)
+ */
+export async function getFullUserProfile(): Promise<import('../types').FullUserProfile> {
+  return apiRequest('/profile/full');
+}
+
 // ==================== Bond Operations ====================
 
 /**
@@ -181,11 +210,42 @@ export async function getBondById(bondId: number): Promise<Bond> {
   return apiRequest(`/bonds/${bondId}`);
 }
 
+// ==================== Bond Token Operations ====================
+
 /**
- * Get bonds created by specific issuer
+ * Get specific bond token by ID
  */
-export async function getBondsByIssuer(issuerAddress: string): Promise<Bond[]> {
-  return apiRequest(`/bonds/issuer/${issuerAddress}`);
+export async function getBondTokenById(tokenId: number): Promise<import('../types').BondToken> {
+  return apiRequest(`/bond-tokens/${tokenId}`);
+}
+
+/**
+ * Get bond token by on-chain ID
+ */
+export async function getBondTokenByOnChainId(onChainId: string): Promise<import('../types').BondToken> {
+  return apiRequest(`/bond-tokens/on-chain/${onChainId}`);
+}
+
+/**
+ * Get all bond tokens owned by specific address
+ */
+export async function getBondTokensByOwner(
+  owner: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<import('../types').BondToken[]> {
+  return apiRequest(`/bond-tokens/owner?owner=${owner}&limit=${limit}&offset=${offset}`);
+}
+
+/**
+ * Get all bond tokens for specific project
+ */
+export async function getBondTokensByProject(
+  projectId: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<import('../types').BondToken[]> {
+  return apiRequest(`/bond-tokens/project?project_id=${projectId}&limit=${limit}&offset=${offset}`);
 }
 
 // ==================== Session Management ====================
@@ -212,15 +272,28 @@ export async function revokeSession(sessionId: string): Promise<void> {
   return apiRequest(`/sessions/${sessionId}`, { method: 'DELETE' });
 }
 
+/**
+ * Logout from all sessions
+ */
+export async function logoutAll(): Promise<void> {
+  return apiRequest('/auth/logout-all', { method: 'POST' });
+}
+
 export default {
   checkHealth,
   getAuthChallenge,
   verifySignature,
   logout,
+  logoutAll,
   getUserProfile,
+  updateUserProfile,
+  getFullUserProfile,
   getAllBonds,
   getBondById,
-  getBondsByIssuer,
+  getBondTokenById,
+  getBondTokenByOnChainId,
+  getBondTokensByOwner,
+  getBondTokensByProject,
   listSessions,
   revokeSession,
 };

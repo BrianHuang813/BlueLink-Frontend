@@ -4,17 +4,17 @@
  */
 
 import React, { useState } from 'react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { useBonds } from '../hooks/useBonds';
 import { Bond } from '../types';
 import BondCard from '../components/BondCard';
 import BuyBondModal from '../components/BuyBondModal';
-import { parseTransactionError } from '../lib/sui';
-// TODO: Import buyBondTokenTx when implementing full transaction flow
-// import { buyBondTokenTx } from '../lib/sui';
+import { parseTransactionError, notifyBackendAboutTransaction } from '../lib/sui';
 
 const BondMarketplacePage: React.FC = () => {
   const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const { bonds, loading, error, refetch } = useBonds(15000); // Poll every 15s
   const [selectedBond, setSelectedBond] = useState<Bond | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,34 +39,66 @@ const BondMarketplacePage: React.FC = () => {
     }
 
     try {
-      // This is a simplified version - you'll need to integrate with @mysten/dapp-kit
-      // to actually sign and execute the transaction
       console.log('Purchasing bond:', { bondId, amount });
       
-      // Example transaction (you'll need to implement the actual signing)
-      // const tx = buyBondTokenTx({
-      //   bondProjectId: bondId,
-      //   amount: amount,
-      //   payment: suiCoin, // You'll need to get this from wallet
-      // });
+      // Create transaction
+      const txb = new Transaction();
       
-      // await signAndExecuteTransactionBlock({ transactionBlock: tx });
+      // Split coins for payment
+      const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(amount)]);
       
-      // Show success message
-      alert('購買成功！交易已提交至區塊鏈');
+      // Call buy_bond_rwa_tokens function
+      txb.moveCall({
+        target: `${import.meta.env.VITE_SUI_PACKAGE_ID}::blue_link::buy_bond_rwa_tokens`,
+        arguments: [
+          txb.object(bondId),
+          txb.pure.u64(amount),
+          coin,
+          txb.object('0x6'), // Clock object ID
+        ],
+      });
       
-      // Refresh bonds data
-      await refetch();
-      
+      // Sign and execute transaction
+      signAndExecute(
+        { transaction: txb },
+        {
+          onSuccess: async (result: any) => {
+            console.log('Purchase successful:', result);
+            console.log('Transaction digest:', result.digest);
+            
+            // Notify backend to index this transaction
+            try {
+              await notifyBackendAboutTransaction(result.digest, 'bond_purchased');
+              console.log('Backend notified about purchase');
+            } catch (err) {
+              console.warn('Failed to notify backend:', err);
+            }
+            
+            alert(
+              '購買成功！\n\n' +
+              '交易已提交至區塊鏈。\n' +
+              '您的債券代幣將顯示在儀表板中。'
+            );
+            
+            // Refresh bonds data
+            await refetch();
+            setIsModalOpen(false);
+          },
+          onError: (error: any) => {
+            console.error('Purchase failed:', error);
+            const { message } = parseTransactionError(error);
+            alert(`購買失敗: ${message}`);
+          }
+        }
+      );
     } catch (error) {
-      console.error('Purchase failed:', error);
-      const { message } = parseTransactionError(error);
-      alert(`購買失敗: ${message}`);
+      console.error('Error creating purchase transaction:', error);
+      alert('建立交易失敗，請重試');
     }
   };
 
-  // Filter bonds
-  const filteredBonds = bonds.filter((bond) => {
+  // Filter bonds - ensure bonds is an array
+  const filteredBonds = (Array.isArray(bonds) ? bonds : []).filter((bond) => {
     if (filter === 'active') return bond.active && !bond.redeemable;
     if (filter === 'matured') return bond.redeemable;
     return true;

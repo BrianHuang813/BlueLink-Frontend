@@ -1,49 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';
+import React, { useState } from 'react';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import { Link } from 'react-router-dom';
-import { projectService } from '../services/api';
-import { Project, DonationReceipt } from '../types';
+import { useOnChainBonds } from '../hooks/useOnChainBonds';
+import { useUserProfile } from '../hooks/useUserProfile';
+import RedeemBondModal from '../components/RedeemBondModal';
+import WithdrawFundsModal from '../components/WithdrawFundsModal';
 
 const DashboardPage: React.FC = () => {
-  const [view, setView] = useState<'creator' | 'donor'>('creator');
-
-  const [createdProjects, setCreatedProjects] = useState<Project[]>([]);
-  const [donations, setDonations] = useState<DonationReceipt[]>([]);
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'issuer' | 'investor'>('investor');
 
   const currentAccount = useCurrentAccount();
+  const { profile } = useUserProfile();
+  
+  // Fetch bonds directly from chain
+  const { 
+    issuedBonds, 
+    bondTokens, 
+    loading, 
+    error, 
+    refetch 
+  } = useOnChainBonds(currentAccount?.address, 15000); // Poll every 15s
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!currentAccount) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const [allProjects, donationsData] = await Promise.all([
-          projectService.getAllProjects(),
-          projectService.getDonationHistory(currentAccount.address)
-        ]);
-        
-        const userProjects = allProjects.filter(p => p.creator === currentAccount.address);
-        setCreatedProjects(userProjects);
-        setDonations(donationsData);
-
-      } catch (err) {
-        setError('無法載入儀表板數據');
-        console.error('Error fetching dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [currentAccount]);
+  // Manual refresh function
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
   // Loading and Wallet Connection states
   if (!currentAccount) {
@@ -65,28 +46,79 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">我的儀表板</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">我的儀表板</h1>
+        <button
+          onClick={handleRefresh}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          title="刷新數據"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          刷新
+        </button>
+      </div>
 
-      {/* View Switcher */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-6">
-            <button
-              onClick={() => setView('creator')}
-              className={`px-3 py-2 font-medium text-sm rounded-t-md ${view === 'creator' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
-              我建立的專案 ({createdProjects.length})
-            </button>
-            <button
-              onClick={() => setView('donor')}
-              className={`px-3 py-2 font-medium text-sm rounded-t-md ${view === 'donor' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
-              我的捐贈記錄 ({donations.length})
-            </button>
-          </nav>
+      {/* User Info */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">用戶資訊</h2>
+        <div className="space-y-2">
+          <div><span className="font-medium">角色：</span>{profile?.role === 'issuer' ? '發行者' : profile?.role === 'buyer' ? '購買者' : profile?.role === 'admin' ? '管理員' : '未知'}</div>
+          <div><span className="font-medium">錢包地址：</span><div className="font-mono text-xs break-all mt-1">{currentAccount.address}</div></div>
         </div>
       </div>
 
-      {/* Conditional Rendering based on view */}
-      {view === 'creator' ? <CreatorDashboard projects={createdProjects} /> : <DonorDashboard donations={donations} />}
+      {/* Conditional Rendering based on user role */}
+      {profile?.role === 'issuer' ? (
+        // 發行者只看到他們發行的債券
+        <>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-800">
+              我發行的債券 ({loading ? '...' : issuedBonds.length})
+            </h2>
+            <div className="text-sm text-blue-600">🔗 來自鏈上數據</div>
+          </div>
+          <IssuerDashboard bonds={issuedBonds} />
+        </>
+      ) : profile?.role === 'buyer' ? (
+        // 購買者只看到他們持有的債券
+        <>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-800">
+              我持有的債券 ({loading ? '...' : bondTokens.length})
+            </h2>
+            <div className="text-sm text-blue-600">🔗 來自鏈上數據</div>
+          </div>
+          <InvestorDashboard tokens={bondTokens} loading={loading} />
+        </>
+      ) : profile?.role === 'admin' ? (
+        // 管理員可以看到兩個視圖
+        <>
+          {/* View Switcher for Admin */}
+          <div className="mb-6">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-6">
+                <button
+                  onClick={() => setView('issuer')}
+                  className={`px-3 py-2 font-medium text-sm rounded-t-md ${view === 'issuer' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                  我發行的債券 ({loading ? '...' : issuedBonds.length})
+                </button>
+                <button
+                  onClick={() => setView('investor')}
+                  className={`px-3 py-2 font-medium text-sm rounded-t-md ${view === 'investor' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                  我持有的債券 ({loading ? '...' : bondTokens.length})
+                </button>
+              </nav>
+            </div>
+          </div>
+          {view === 'issuer' ? (
+            <IssuerDashboard bonds={issuedBonds} />
+          ) : (
+            <InvestorDashboard tokens={bondTokens} loading={loading} />
+          )}
+        </>
+      ) : null}
     
       <div className="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-600">
         <strong>錢包地址：</strong>
@@ -96,14 +128,19 @@ const DashboardPage: React.FC = () => {
   );
 };
 
-// Creator View Component
-const CreatorDashboard: React.FC<{ projects: Project[] }> = ({ projects }) => {
-  if (projects.length === 0) {
+// Issuer View Component
+const IssuerDashboard: React.FC<{ bonds: any[] }> = ({ bonds }) => {
+  const [selectedBond, setSelectedBond] = React.useState<any>(null);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = React.useState(false);
+  
+  if (bonds.length === 0) {
     return (
       <div className="text-center py-16">
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">您尚未建立任何項目</h3>
+        <div className="text-6xl mb-4">📋</div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">您尚未發行任何債券</h3>
+        <p className="text-gray-600 mb-6">開始創建您的第一個債券項目</p>
         <Link to="/create" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors inline-block mt-4">
-          建立第一個項目
+          創建債券項目
         </Link>
       </div>
     );
@@ -111,139 +148,225 @@ const CreatorDashboard: React.FC<{ projects: Project[] }> = ({ projects }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-      <div className="px-6 py-4 border-b"><h2 className="text-xl font-semibold">我建立的專案</h2></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-        {projects.map(p => <CreatorProjectCard key={p.id} project={p} />)}
+      <div className="px-6 py-4 border-b"><h2 className="text-xl font-semibold">我發行的債券</h2></div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">債券名稱</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">總金額</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">已募集</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">已發行 Token</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">利率</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">到期日</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">狀態</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {bonds.map((bond, index) => {
+              // Handle both on-chain and database formats
+              const bondName = bond.bond_name || bond.bondName || '未命名';
+              const totalAmount = Number(bond.total_amount || bond.totalAmount || 0);
+              const amountRaised = Number(bond.amount_raised || bond.amountRaised || 0);
+              const tokensIssued = Number(bond.tokens_issued || bond.tokensIssued || 0);
+              const tokensRedeemed = Number(bond.tokens_redeemed || bond.tokensRedeemed || 0);
+              const annualRate = Number(bond.annual_interest_rate || bond.annualInterestRate || 0);
+              const maturityDate = bond.maturity_date || bond.maturityDate;
+              const active = bond.active ?? true;
+              
+              return (
+                <tr key={bond.objectId || bond.id || index} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium">{bondName}</td>
+                  <td className="px-6 py-4 text-sm">{(totalAmount / 1000000000).toFixed(2)} SUI</td>
+                  <td className="px-6 py-4 text-sm">
+                    <div>{(amountRaised / 1000000000).toFixed(2)} SUI</div>
+                    <div className="text-xs text-gray-500">
+                      {totalAmount > 0 ? ((amountRaised / totalAmount) * 100).toFixed(1) : 0}%
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <div>{tokensIssued}</div>
+                    <div className="text-xs text-gray-500">已贖回: {tokensRedeemed}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">{(annualRate / 100).toFixed(2)}%</td>
+                  <td className="px-6 py-4 text-sm">
+                    {maturityDate ? new Date(Number(maturityDate)).toLocaleDateString() : 'N/A'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {active ? '有效' : '已關閉'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {amountRaised > 0 && (
+                      <button
+                        onClick={() => {
+                          setSelectedBond(bond);
+                          setIsWithdrawModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        提取資金
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+      
+      <WithdrawFundsModal
+        bond={selectedBond}
+        isOpen={isWithdrawModalOpen}
+        onClose={() => {
+          setIsWithdrawModalOpen(false);
+          setSelectedBond(null);
+        }}
+        onSuccess={() => {
+          window.location.reload();
+        }}
+      />
     </div>
   );
 };
 
-// Donor View Component (adapted from original page code)
-const DonorDashboard: React.FC<{ donations: DonationReceipt[] }> = ({ donations }) => {
-  if (donations.length === 0) {
+// Investor View Component
+const InvestorDashboard: React.FC<{ tokens: any[]; loading: boolean }> = ({ tokens, loading }) => {
+  const [selectedToken, setSelectedToken] = React.useState<any>(null);
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = React.useState(false);
+  
+  if (loading) {
+    return <div className="text-center py-16">載入中...</div>;
+  }
+
+  if (tokens.length === 0) {
     return (
       <div className="text-center py-16">
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">還沒有捐贈記錄</h3>
-        <Link to="/" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors inline-block mt-4">
-          探索項目
+        <div className="text-6xl mb-4">💼</div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">還沒有購買任何債券</h3>
+        <p className="text-gray-600 mb-6">開始投資您的第一個債券</p>
+        <Link to="/bonds" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors inline-block mt-4">
+          瀏覽債券市場
         </Link>
       </div>
     );
   }
 
-  const totalAmount = donations.reduce((sum, d) => sum + (parseFloat(d.amount) / 1000000000), 0);
+  // Handle both on-chain and database formats
+  const totalAmount = tokens.reduce((sum: number, t) => {
+    const amount = Number(t.amount || 0);
+    return sum + (amount / 1000000000);
+  }, 0);
 
   return (
     <>
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center"><div className="text-3xl mr-4">💝</div><div>
+          <div className="flex items-center">
+            <div className="text-3xl mr-4">�</div>
+            <div>
               <div className="text-2xl font-bold text-green-600">{totalAmount.toFixed(2)} SUI</div>
-              <div className="text-sm text-gray-600">總捐贈金額</div></div></div>
+              <div className="text-sm text-gray-600">持有總金額</div>
+            </div>
+          </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center"><div className="text-3xl mr-4">🏆</div><div>
-              <div className="text-2xl font-bold text-purple-600">{donations.length}</div>
-              <div className="text-sm text-gray-600">鏈上數位憑證</div></div></div>
+          <div className="flex items-center">
+            <div className="text-3xl mr-4">📜</div>
+            <div>
+              <div className="text-2xl font-bold text-purple-600">{tokens.length}</div>
+              <div className="text-sm text-gray-600">持有債券數</div>
+            </div>
+          </div>
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="px-6 py-4 border-b"><h2 className="text-xl font-semibold">捐贈記錄</h2></div>
+        <div className="px-6 py-4 border-b"><h2 className="text-xl font-semibold">我的債券</h2></div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">鏈上數位憑證 ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">項目 ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">金額</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">債券名稱 / 編號</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">持有金額</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">到期日</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">狀態</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {donations.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-mono text-sm">{d.id.substring(0, 12)}...</td>
-                  <td className="px-6 py-4 font-mono text-sm"><Link to={`/project/${d.project_id}`} className="text-blue-600 hover:underline">{d.project_id.substring(0, 12)}...</Link></td>
-                  <td className="px-6 py-4 font-bold text-sm text-green-600">{(parseFloat(d.amount) / 1000000000).toFixed(4)} SUI</td>
-                </tr>
-              ))}
+              {tokens.map((token, index) => {
+                // Handle both on-chain and database formats
+                const bondName = token.bond_name || token.bondName || '未命名債券';
+                const tokenNumber = token.token_number || token.tokenNumber || index;
+                const amount = Number(token.amount || 0);
+                const maturityDate = token.maturity_date || token.maturityDate;
+                const redeemed = token.redeemed || token.is_redeemed || false;
+                
+                const isMatured = maturityDate && new Date(Number(maturityDate)) <= new Date();
+                
+                return (
+                  <tr key={token.objectId || token.id || index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-mono text-sm">
+                      <div>{bondName}</div>
+                      <div className="text-xs text-gray-400">#{tokenNumber}</div>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-sm text-green-600">
+                      {(amount / 1000000000).toFixed(4)} SUI
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {maturityDate ? new Date(Number(maturityDate)).toLocaleDateString() : 'N/A'}
+                      {isMatured && !redeemed && (
+                        <div className="text-xs text-green-600 mt-1">✓ 可贖回</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${redeemed ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'}`}>
+                        {redeemed ? '已贖回' : '持有中'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {!redeemed && (
+                        <button
+                          onClick={() => {
+                            setSelectedToken(token);
+                            setIsRedeemModalOpen(true);
+                          }}
+                          disabled={!isMatured}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                            isMatured
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          {isMatured ? '贖回' : '未到期'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+      
+      <RedeemBondModal
+        bondToken={selectedToken}
+        isOpen={isRedeemModalOpen}
+        onClose={() => {
+          setIsRedeemModalOpen(false);
+          setSelectedToken(null);
+        }}
+        onSuccess={() => {
+          // Refresh will be handled by the polling in useOnChainBonds
+          window.location.reload();
+        }}
+      />
     </>
   );
 };
-
-// Simple card for the created projects list
-const CreatorProjectCard: React.FC<{ project: Project }> = ({ project }) => {
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-
-  const fundingGoal = parseFloat(project.funding_goal) / 1000000000;
-  const totalRaised = parseFloat(project.total_raised) / 1000000000;
-  const progress = fundingGoal > 0 ? (totalRaised / fundingGoal) * 100 : 0;
-
-  const handleWithdraw = () => {
-    if (totalRaised <= 0) {
-      alert("沒有可提取的資金。");
-      return;
-    }
-    
-    setIsWithdrawing(true);
-    
-    const txb = new Transaction();
-    
-    // =======================================================================
-    // TODO: 將 '0x0' 替換為真實 Package ID
-    // 例如: target: '0x123abc...def::bluelink::withdraw'
-    // =======================================================================
-    txb.moveCall({
-      target: '0x0::bluelink::withdraw', // Replace with actual package address
-      arguments: [
-        txb.object(project.id),
-      ],
-    });
-
-    signAndExecute(
-      { transaction: txb },
-      {
-        onSuccess: (result: any) => {
-          console.log('Withdraw successful:', result);
-          alert('資金提取成功！頁面將會刷新以更新數據。');
-          window.location.reload();
-        },
-        onError: (error: any) => {
-          console.error('Withdraw failed:', error);
-          alert('資金提取失敗，請重試。');
-        },
-        onSettled: () => {
-          setIsWithdrawing(false);
-        }
-      }
-    );
-  };
-
-  return (
-    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-      <h4 className="font-bold truncate">{project.name}</h4>
-      <p className="text-xs text-gray-500 font-mono mb-3">ID: {project.id.substring(0, 12)}...</p>
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.min(progress, 100)}%` }}></div>
-      </div>
-      <p className="text-xs text-right">{progress.toFixed(1)}% ({totalRaised.toFixed(2)} / {fundingGoal.toFixed(2)} SUI)</p>
-      <div className="mt-4 flex space-x-2">
-        <Link to={`/project/${project.id}`} className="flex-1 text-center bg-white border border-gray-300 text-sm px-3 py-1 rounded-md hover:bg-gray-100">查看詳情</Link>
-        <button 
-          onClick={handleWithdraw}
-          disabled={isWithdrawing || totalRaised === 0} 
-          className="flex-1 text-center bg-blue-500 text-white text-sm px-3 py-1 rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isWithdrawing ? '處理中...' : '提取資金'}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default DashboardPage;
